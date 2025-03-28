@@ -12,6 +12,9 @@ namespace EventosApi.Mappings
     {
         public AutoMapperProfile()
         {
+            //USUARIO
+            CreateMap<Usuario, UsuarioResponseDto>();
+            CreateMap<LoginRequestDto, Usuario>();
             //TIPO
             CreateMap<Tipo, TipoResponseDto>();
             CreateMap<TipoRequestDto, Tipo>();
