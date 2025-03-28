@@ -33,8 +33,11 @@ builder.Services.AddAuthorization(options =>
 
 // Registro de servicios específicos
 builder.Services.AddScoped<ITipoService, TipoServiceImplSql>();
-builder.Services.AddScoped<ITipoRepository, TipoRepository>();
 builder.Services.AddScoped<IUserValidationService, UserDetailsServiceImplSql>();
+builder.Services.AddScoped<IUsuarioService, UsuarioServiceImplSql>();
+builder.Services.AddScoped<ITipoRepository, TipoRepository>();
+builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+
 
 var app = builder.Build();
 

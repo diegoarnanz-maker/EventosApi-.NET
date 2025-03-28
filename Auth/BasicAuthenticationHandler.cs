@@ -5,13 +5,14 @@ using System.Net.Http.Headers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using EventosApi.Services;
+using EventosApi.Models;
 
 namespace EventosApi.Auth
 {
     // 📍 Este Handler reemplaza al AuthenticationManager + UserDetailsService de Spring
     public class BasicAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
     {
-        private readonly IUsuarioService _usuarioService;
+        private readonly IUserValidationService _usuarioValidationService;
 
         // 🔧 Constructor con dependencias inyectadas
         public BasicAuthenticationHandler(
@@ -19,10 +20,10 @@ namespace EventosApi.Auth
             ILoggerFactory logger,
             UrlEncoder encoder,
             ISystemClock clock,
-            IUsuarioService usuarioService // ⬅️ Equivalente a inyectar un UserDetailsService
+            IUserValidationService userValidationService // ⬅️ Equivalente a inyectar un UserDetailsService
         ) : base(options, logger, encoder, clock)
         {
-            _usuarioService = usuarioService;
+            _usuarioValidationService = userValidationService;
         }
 
         // 🛡️ Este método se ejecuta en cada request protegida por [Authorize]
@@ -35,30 +36,31 @@ namespace EventosApi.Auth
             try
             {
                 // ✅ 2. Decodifica el header Authorization: Basic base64(username:password)
-                var authHeader = AuthenticationHeaderValue.Parse(Request.Headers["Authorization"]);
-                var credentialBytes = Convert.FromBase64String(authHeader.Parameter!);
-                var credentials = Encoding.UTF8.GetString(credentialBytes).Split(':');
+                AuthenticationHeaderValue authHeader = AuthenticationHeaderValue.Parse(Request.Headers["Authorization"]);
+                byte[] credentialBytes = Convert.FromBase64String(authHeader.Parameter!);
+                string[] credentials = Encoding.UTF8.GetString(credentialBytes).Split(':');
 
                 string username = credentials[0];
                 string password = credentials[1];
 
                 // ✅ 3. Valida el usuario contra la base de datos
                 // ⬅️ Esto es como el método `loadUserByUsername` + `BCrypt.matches(...)` en Spring
-                var usuario = await _usuarioService.ValidateUserAsync(username, password);
+                Usuario? usuario = await _usuarioValidationService.ValidateUserAsync(username, password);
 
                 if (usuario == null)
                     return AuthenticateResult.Fail("Invalid username or password");
 
                 // ✅ 4. Crea los claims (datos de autenticación del usuario)
-                var claims = new[] {
+                Claim[] claims = new[]
+                {
                     new Claim(ClaimTypes.Name, usuario.Username),
-                    // Si tuvieras roles: new Claim(ClaimTypes.Role, "ADMIN")
+                    // Si tuvieras roles: new Claim(ClaimTypes.Role, "ROLE_ADMIN")
                 };
 
                 // 📦 5. Crea una identidad y construye el ticket de autenticación
-                var identity = new ClaimsIdentity(claims, Scheme.Name);
-                var principal = new ClaimsPrincipal(identity);
-                var ticket = new AuthenticationTicket(principal, Scheme.Name);
+                ClaimsIdentity identity = new ClaimsIdentity(claims, Scheme.Name);
+                ClaimsPrincipal principal = new ClaimsPrincipal(identity);
+                AuthenticationTicket ticket = new AuthenticationTicket(principal, Scheme.Name);
 
                 return AuthenticateResult.Success(ticket);
             }
