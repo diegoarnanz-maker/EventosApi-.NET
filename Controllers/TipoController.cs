@@ -107,7 +107,7 @@ namespace EventosApi.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult<ApiResponse<string>>> Delete(int id)
         {
-            
+
             bool deleted = await _tipoService.DeleteAsync(id);
 
             if (!deleted)
