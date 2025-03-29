@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using EventosApi.Auth;
 using EventosApi.Configurations;
 using EventosApi.Models;
@@ -10,7 +11,11 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Configuración de servicios
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSwaggerGen(c =>
@@ -55,12 +60,16 @@ builder.Services.AddAuthentication("BasicAuthentication")
 builder.Services.AddAuthorization();
 
 // Registro de servicios específicos
+// @Repository
+builder.Services.AddScoped<ITipoRepository, TipoRepository>();
+builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
+builder.Services.AddScoped<IEventoRepository, EventoRepository>();
+
+// @Service
 builder.Services.AddScoped<ITipoService, TipoServiceImplSql>();
 builder.Services.AddScoped<IUserValidationService, UserDetailsServiceImplSql>();
 builder.Services.AddScoped<IUsuarioService, UsuarioServiceImplSql>();
-builder.Services.AddScoped<ITipoRepository, TipoRepository>();
-builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
-
+builder.Services.AddScoped<IEventoService, EventoServiceImplSql>();
 
 var app = builder.Build();
 
