@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace EventosApi.Models
 {
-    [Table("Tipos")]
+    [Table("TIPOS")]
     public class Tipo
     {
         [Key]
@@ -15,9 +15,11 @@ namespace EventosApi.Models
         public int IdTipo { get; set; }
 
         [Required, MaxLength(45)]
+        [Column("NOMBRE")]
         public string Nombre { get; set; }
 
         [MaxLength(200)]
+        [Column("DESCRIPCION")]
         public string? Descripcion { get; set; }
 
         // Relación: un tipo tiene muchos eventos
