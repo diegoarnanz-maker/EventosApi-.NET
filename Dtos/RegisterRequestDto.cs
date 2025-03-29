@@ -13,5 +13,9 @@ namespace EventosApi.Dtos
         public string? Nombre { get; set; }
         public string? Apellidos { get; set; }
         public string? Direccion { get; set; }
+
+        // Solo si se necesita el rol en el registro para crear el primer admin
+        // public string? Rol { get; set; }
+
     }
 }

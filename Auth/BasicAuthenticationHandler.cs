@@ -54,8 +54,8 @@ namespace EventosApi.Auth
                 Claim[] claims = new[]
                 {
                     new Claim(ClaimTypes.Name, usuario.Username),
-                    // Si tuvieras roles: new Claim(ClaimTypes.Role, "ROLE_ADMIN")
-                };
+                    new Claim(ClaimTypes.Role, usuario.Rol)
+            };
 
                 // 📦 5. Crea una identidad y construye el ticket de autenticación
                 ClaimsIdentity identity = new ClaimsIdentity(claims, Scheme.Name);

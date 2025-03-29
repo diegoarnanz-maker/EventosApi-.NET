@@ -9,8 +9,8 @@ namespace EventosApi.Dtos
     {
         public string Username { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
-
         public string? Nombre { get; set; }
         public string? Apellidos { get; set; }
+        public string Rol { get; set; } = string.Empty;
     }
 }

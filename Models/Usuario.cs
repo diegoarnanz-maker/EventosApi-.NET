@@ -17,6 +17,9 @@ namespace EventosApi.Models
         [StringLength(150)]
         public string Password { get; set; }
 
+        [MaxLength(20)]
+        public string Rol { get; set; } = "USER";
+
         [Required]
         [Column("EMAIL")]
         [MaxLength(100)]
@@ -40,7 +43,5 @@ namespace EventosApi.Models
         [Column("FECHA_REGISTRO")]
         public DateTime? FechaRegistro { get; set; }
 
-        // Relación muchos a muchos con Perfil
-        public ICollection<Perfil> Perfiles { get; set; }
     }
 }

@@ -3,6 +3,7 @@ using EventosApi.Dtos;
 using EventosApi.Models;
 using EventosApi.Services;
 using EventosApi.Utils;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EventosApi.Controllers.Auth
@@ -35,7 +36,7 @@ namespace EventosApi.Controllers.Auth
             }
 
             // Mapear el usuario a un DTO de respuesta
-            var usuarioResponse = _mapper.Map<UsuarioResponseDto>(usuario);
+            UsuarioResponseDto usuarioResponse = _mapper.Map<UsuarioResponseDto>(usuario);
 
             // Devolver la respuesta con el usuario autenticado
             return Ok(new ApiResponse<UsuarioResponseDto>(usuarioResponse));
@@ -44,27 +45,45 @@ namespace EventosApi.Controllers.Auth
         [HttpPost("register")]
         public async Task<ActionResult<ApiResponse<UsuarioResponseDto>>> Register([FromBody] RegisterRequestDto dto)
         {
-            // Verificar si el usuario ya existe
-            bool exists = await _usuarioService.ExistsByUsernameAsync(dto.Username);
-            if (exists)
+            try
             {
-                return Conflict(new ApiResponse<string>("El usuario ya existe."));
+                // Toda la lógica queda encapsulada en el servicio
+                Usuario nuevoUsuario = await _usuarioService.RegisterAsync(dto);
+
+                UsuarioResponseDto responseDto = _mapper.Map<UsuarioResponseDto>(nuevoUsuario);
+                return Created("", new ApiResponse<UsuarioResponseDto>(responseDto));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new ApiResponse<string>(ex.Message));
+            }
+        }
+
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<ActionResult<ApiResponse<UsuarioResponseDto>>> GetMe()
+        {
+            // Obtener el nombre de usuario desde el contexto de seguridad
+            string? username = User.Identity?.Name;
+
+            if (string.IsNullOrEmpty(username))
+            {
+                return Unauthorized(new ApiResponse<string>("No se pudo obtener el usuario autenticado."));
             }
 
-            // Mapear DTO → Entidad
-            Usuario usuario = _mapper.Map<Usuario>(dto);
+            // Buscar el usuario en la base de datos
+            Usuario? usuario = await _usuarioService.FindByUsernameAsync(username);
 
-            // Encriptar la contraseña y otros datos
-            usuario.Password = _usuarioService.HashPassword(usuario, dto.Password);
-            usuario.Enabled = true;
-            usuario.FechaRegistro = DateTime.UtcNow;
+            if (usuario == null)
+            {
+                return NotFound(new ApiResponse<string>("Usuario no encontrado."));
+            }
 
-            // Guardar en BBDD
-            Usuario nuevoUsuario = await _usuarioService.CreateAsync(usuario);
+            // Mapear a DTO
+            UsuarioResponseDto usuarioResponse = _mapper.Map<UsuarioResponseDto>(usuario);
+            ApiResponse<UsuarioResponseDto> response = new ApiResponse<UsuarioResponseDto>(usuarioResponse);
 
-            // Mapear a DTO de respuesta
-            UsuarioResponseDto responseDto = _mapper.Map<UsuarioResponseDto>(nuevoUsuario);
-            return Created("", new ApiResponse<UsuarioResponseDto>(responseDto));
+            return Ok(response);
         }
 
 
