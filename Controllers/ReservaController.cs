@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace EventosApi.Controllers
 {
-    public class UsuarioController
+    public class ReservaController
     {
         
     }
