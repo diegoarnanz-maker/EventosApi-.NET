@@ -31,6 +31,15 @@ namespace EventosApi.Mappings
 
             CreateMap<EventoRequestDto, Evento>();
 
+            // RESERVA
+            // RESERVA
+            CreateMap<Reserva, ReservaResponseDto>()
+                .ForMember(dest => dest.NombreEvento, opt => opt.MapFrom(src => src.Evento.Nombre))
+                .ForMember(dest => dest.EmailUsuario, opt => opt.MapFrom(src => src.Usuario.Email))
+                .ForMember(dest => dest.FechaEvento, opt => opt.MapFrom(src => src.Evento.FechaInicio))
+                .ForMember(dest => dest.DireccionEvento, opt => opt.MapFrom(src => src.Evento.Direccion));
+
+            CreateMap<ReservaRequestDto, Reserva>();
         }
     }
 }
