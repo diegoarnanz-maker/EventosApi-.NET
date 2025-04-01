@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using EventosApi.Exceptions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -88,7 +89,8 @@ namespace EventosApi.Services
             try
             {
                 var entity = await GetByIdAsync(id);
-                if (entity == null) return false;
+                if (entity == null)
+                    throw new BadRequestException($"{typeof(T).Name} no puede ser nulo.");
 
                 GetDbSet().Remove(entity);
                 await _context.SaveChangesAsync();
@@ -100,5 +102,6 @@ namespace EventosApi.Services
                 throw;
             }
         }
+
     }
 }

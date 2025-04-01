@@ -43,5 +43,7 @@ namespace EventosApi.Models
         [Column("FECHA_REGISTRO")]
         public DateTime? FechaRegistro { get; set; }
 
+        // Relación inversa
+        public ICollection<Reserva> Reservas { get; set; } = new List<Reserva>();
     }
 }

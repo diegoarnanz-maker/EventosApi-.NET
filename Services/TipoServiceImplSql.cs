@@ -1,4 +1,5 @@
 using EventosApi.Configurations;
+using EventosApi.Exceptions;
 using EventosApi.Models;
 using EventosApi.Repositories;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +10,6 @@ namespace EventosApi.Services
     public class TipoServiceImplSql : GenericoCRUDServiceImplSql<Tipo, int>, ITipoService
     {
         private readonly AppDbContext _context;
-
         private readonly ITipoRepository _tipoRepository;
 
         public TipoServiceImplSql(AppDbContext context, ITipoRepository tipoRepository, ILogger<TipoServiceImplSql> logger)
@@ -28,7 +28,15 @@ namespace EventosApi.Services
         // Implementación de método de ITipoService
         public async Task<IEnumerable<Tipo>> FindByNombreContainsAsync(string nombre)
         {
-            return await _tipoRepository.FindByNombreContainsAsync(nombre);
+            if (string.IsNullOrWhiteSpace(nombre))
+                throw new BadRequestException("El nombre no puede estar vacío.");
+
+            IEnumerable<Tipo> resultados = await _tipoRepository.FindByNombreContainsAsync(nombre);
+
+            if (!resultados.Any())
+                throw new NotFoundException("No se encontraron tipos que coincidan con el criterio de búsqueda.");
+
+            return resultados;
         }
     }
 }

@@ -26,42 +26,77 @@ namespace EventosApi.Controllers
 
         [HttpGet]
         [Authorize(Roles = "ADMIN")]
-        public async
-        Task<ActionResult<IEnumerable<ReservaResponseDto>>> GetAll()
+        public async Task<ActionResult<IEnumerable<ReservaResponseDto>>> GetAll()
         {
             IEnumerable<Reserva> reservas = await _reservaService.GetAllAsync();
-
             IEnumerable<ReservaResponseDto> reservaDtos = _mapper.Map<IEnumerable<ReservaResponseDto>>(reservas);
-
             return Ok(reservaDtos);
+        }
+
+        [HttpGet("/mis-reservas")]
+        [Authorize(Roles = "USER")]
+        public async Task<ActionResult<IEnumerable<ReservaResponseDto>>> GetMisReservas()
+        {
+            string? username = User?.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+                throw new UnauthorizedAccessException("No se pudo identificar al usuario autenticado.");
+
+            IEnumerable<Reserva> reservas = await _reservaService.FindByUsernameAsync(username);
+            IEnumerable<ReservaResponseDto> reservaDtos = _mapper.Map<IEnumerable<ReservaResponseDto>>(reservas);
+            return Ok(reservaDtos);
+        }
+
+        [HttpGet("/evento/{idEvento}")]
+        [Authorize(Roles = "ADMIN")]
+        public async Task<ActionResult<IEnumerable<ReservaResponseDto>>> GetByEventoId(int idEvento)
+        {
+            IEnumerable<Reserva> reservas = await _reservaService.FindByEventoIdAsync(idEvento);
+            IEnumerable<ReservaResponseDto> dto = _mapper.Map<IEnumerable<ReservaResponseDto>>(reservas);
+            return Ok(dto);
         }
 
         [HttpPost]
         [Authorize(Roles = "USER")]
         public async Task<ActionResult<ReservaResponseDto>> Create([FromBody] ReservaRequestDto dto)
         {
-            // Mapea el DTO a la entidad
-            Reserva reserva = _mapper.Map<Reserva>(dto);
-
-            // Obtener el username del usuario autenticado
-            string username = User?.Identity?.Name;
-
+            string? username = User?.Identity?.Name;
             if (string.IsNullOrEmpty(username))
-            {
-                return Unauthorized("No se pudo identificar al usuario autenticado.");
-            }
+                throw new UnauthorizedAccessException("No se pudo identificar al usuario autenticado.");
 
-            // Asignar el username a la entidad antes de guardar
+            Reserva reserva = _mapper.Map<Reserva>(dto);
             reserva.Username = username;
 
-            // Crear reserva
             Reserva nuevaReserva = await _reservaService.CreateReservaAsync(reserva);
-
-            // Devolver respuesta
             ReservaResponseDto responseDto = _mapper.Map<ReservaResponseDto>(nuevaReserva);
+
             return CreatedAtAction(nameof(GetAll), new { id = responseDto.IdReserva }, responseDto);
         }
 
+        [HttpPut("{id}")]
+        [Authorize]
+        public async Task<ActionResult<ReservaResponseDto>> Update(int id, [FromBody] ReservaUpdateDto dto)
+        {
+            string? username = User?.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+                throw new UnauthorizedAccessException("No se pudo identificar al usuario autenticado.");
 
+            Reserva reservaActualizada = await _reservaService.UpdateReservaAsync(id, username, dto);
+            ReservaResponseDto responseDto = _mapper.Map<ReservaResponseDto>(reservaActualizada);
+            return Ok(responseDto);
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<ActionResult<string>> Delete(int id)
+        {
+            string? username = User?.Identity?.Name;
+            if (string.IsNullOrEmpty(username))
+                throw new UnauthorizedAccessException("No se pudo identificar al usuario.");
+
+            bool isAdmin = User.IsInRole("ADMIN");
+            bool eliminada = await _reservaService.DeleteReservaAsync(id, username, isAdmin);
+
+            return Ok("Reserva eliminada correctamente.");
+        }
     }
 }

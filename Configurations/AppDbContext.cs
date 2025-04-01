@@ -27,7 +27,18 @@ namespace EventosApi.Configurations
                 .Property(e => e.Destacado)
                 .HasConversion<string>();
 
-            // Replica el UNIQUE(ID_EVENTO, USERNAME) de MySQL.
+            // Relaciones explícitas de RESERVAS
+            modelBuilder.Entity<Reserva>()
+                .HasOne(r => r.Usuario)
+                .WithMany(u => u.Reservas)
+                .HasForeignKey(r => r.Username);
+
+            modelBuilder.Entity<Reserva>()
+                .HasOne(r => r.Evento)
+                .WithMany(e => e.Reservas)
+                .HasForeignKey(r => r.IdEvento);
+
+            // Restricción UNIQUE compuesta
             modelBuilder.Entity<Reserva>()
                 .HasIndex(r => new { r.IdEvento, r.Username })
                 .IsUnique();

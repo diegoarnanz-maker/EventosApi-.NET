@@ -84,6 +84,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseMiddleware<EventosApi.Middlewares.ErrorHandlingMiddleware>();
+
 // Autenticación y autorización
 app.UseAuthentication();
 app.UseAuthorization();
