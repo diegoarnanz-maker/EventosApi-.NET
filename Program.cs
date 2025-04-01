@@ -64,12 +64,14 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<ITipoRepository, TipoRepository>();
 builder.Services.AddScoped<IUsuarioRepository, UsuarioRepository>();
 builder.Services.AddScoped<IEventoRepository, EventoRepository>();
+builder.Services.AddScoped<IReservaRepository, ReservaRepository>();
 
 // @Service
 builder.Services.AddScoped<ITipoService, TipoServiceImplSql>();
 builder.Services.AddScoped<IUserValidationService, UserDetailsServiceImplSql>();
 builder.Services.AddScoped<IUsuarioService, UsuarioServiceImplSql>();
 builder.Services.AddScoped<IEventoService, EventoServiceImplSql>();
+builder.Services.AddScoped<IReservaService, ReservaServiceImplSql>();
 
 var app = builder.Build();
 
@@ -81,6 +83,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<EventosApi.Middlewares.ErrorHandlingMiddleware>();
 
 // Autenticación y autorización
 app.UseAuthentication();

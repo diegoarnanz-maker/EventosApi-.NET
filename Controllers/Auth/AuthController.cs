@@ -1,5 +1,6 @@
 using AutoMapper;
 using EventosApi.Dtos;
+using EventosApi.Exceptions;
 using EventosApi.Models;
 using EventosApi.Services;
 using EventosApi.Utils;
@@ -32,61 +33,38 @@ namespace EventosApi.Controllers.Auth
 
             if (usuario == null)
             {
-                return Unauthorized(new ApiResponse<string>("Invalid username or password"));
+                // Lanzamos directamente una excepción personalizada
+                throw new UnauthorizedException("Nombre de usuario o contraseña inválidos.");
             }
 
-            // Mapear el usuario a un DTO de respuesta
             UsuarioResponseDto usuarioResponse = _mapper.Map<UsuarioResponseDto>(usuario);
-
-            // Devolver la respuesta con el usuario autenticado
             return Ok(new ApiResponse<UsuarioResponseDto>(usuarioResponse));
         }
 
+        // POST: api/auth/register
         [HttpPost("register")]
         public async Task<ActionResult<ApiResponse<UsuarioResponseDto>>> Register([FromBody] RegisterRequestDto dto)
         {
-            try
-            {
-                // Toda la lógica queda encapsulada en el servicio
-                Usuario nuevoUsuario = await _usuarioService.RegisterAsync(dto);
+            Usuario nuevoUsuario = await _usuarioService.RegisterAsync(dto);
 
-                UsuarioResponseDto responseDto = _mapper.Map<UsuarioResponseDto>(nuevoUsuario);
-                return Created("", new ApiResponse<UsuarioResponseDto>(responseDto));
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(new ApiResponse<string>(ex.Message));
-            }
+            UsuarioResponseDto responseDto = _mapper.Map<UsuarioResponseDto>(nuevoUsuario);
+            return Created("", new ApiResponse<UsuarioResponseDto>(responseDto));
         }
 
+        // GET: api/auth/me
         [HttpGet("me")]
         [Authorize]
         public async Task<ActionResult<ApiResponse<UsuarioResponseDto>>> GetMe()
         {
-            // Obtener el nombre de usuario desde el contexto de seguridad
             string? username = User.Identity?.Name;
 
             if (string.IsNullOrEmpty(username))
-            {
-                return Unauthorized(new ApiResponse<string>("No se pudo obtener el usuario autenticado."));
-            }
+                throw new UnauthorizedException("No se pudo obtener el usuario autenticado.");
 
-            // Buscar el usuario en la base de datos
             Usuario? usuario = await _usuarioService.FindByUsernameAsync(username);
 
-            if (usuario == null)
-            {
-                return NotFound(new ApiResponse<string>("Usuario no encontrado."));
-            }
-
-            // Mapear a DTO
             UsuarioResponseDto usuarioResponse = _mapper.Map<UsuarioResponseDto>(usuario);
-            ApiResponse<UsuarioResponseDto> response = new ApiResponse<UsuarioResponseDto>(usuarioResponse);
-
-            return Ok(response);
+            return Ok(new ApiResponse<UsuarioResponseDto>(usuarioResponse));
         }
-
-
     }
-
 }

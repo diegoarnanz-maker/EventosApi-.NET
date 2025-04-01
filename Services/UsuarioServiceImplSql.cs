@@ -4,10 +4,12 @@ using System.Linq;
 using System.Threading.Tasks;
 using EventosApi.Configurations;
 using EventosApi.Dtos;
+using EventosApi.Exceptions;
 using EventosApi.Models;
 using EventosApi.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace EventosApi.Services
 {
@@ -32,29 +34,46 @@ namespace EventosApi.Services
         // Verifica si ya existe un usuario por su username
         public async Task<bool> ExistsByUsernameAsync(string username)
         {
+            if (string.IsNullOrWhiteSpace(username))
+                throw new BadRequestException("El nombre de usuario no puede estar vacío.");
+
             Usuario? usuario = await _usuarioRepository.FindByUsernameAsync(username);
             return usuario != null;
         }
 
         public async Task<Usuario?> FindByUsernameAsync(string username)
         {
-            return await _context.Usuarios
-                    .FirstOrDefaultAsync(u => u.Username == username && u.Enabled);
+            if (string.IsNullOrWhiteSpace(username))
+                throw new BadRequestException("El nombre de usuario no puede estar vacío.");
+
+            Usuario? usuario = await _context.Usuarios
+                .FirstOrDefaultAsync(u => u.Username == username && u.Enabled);
+
+            if (usuario == null)
+                throw new NotFoundException("Usuario no encontrado o deshabilitado.");
+
+            return usuario;
         }
 
         // Encripta la contraseña
         public string HashPassword(Usuario usuario, string rawPassword)
         {
+            if (string.IsNullOrWhiteSpace(rawPassword))
+                throw new BadRequestException("La contraseña no puede estar vacía.");
+
             return _passwordHasher.HashPassword(usuario, rawPassword);
         }
 
         public async Task<Usuario> RegisterAsync(RegisterRequestDto dto)
         {
+            if (dto == null)
+                throw new BadRequestException("Los datos de registro no pueden ser nulos.");
+
             // 1. Comprobar si ya existe el usuario
             Usuario? existingUser = await _usuarioRepository.FindByUsernameAsync(dto.Username);
             if (existingUser != null)
             {
-                throw new InvalidOperationException("El nombre de usuario ya está en uso.");
+                throw new BadRequestException("El nombre de usuario ya está en uso.");
             }
 
             // 2. Mapear DTO a entidad manualmente (sin usar AutoMapper dentro del servicio)
@@ -76,7 +95,7 @@ namespace EventosApi.Services
             return usuarioCreado;
         }
 
-
+        // Único método requerido por la clase abstracta
         protected override DbSet<Usuario> GetDbSet()
         {
             return _context.Usuarios;
