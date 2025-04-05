@@ -16,7 +16,8 @@ namespace EventosApi.Utils
         public ApiResponse(T data, string? message = null)
         {
             Data = data;
-            Message = message;
+            Success = true;
+            Message = message ?? "Operación realizada correctamente";
         }
 
         public ApiResponse(string message)
