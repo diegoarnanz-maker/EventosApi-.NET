@@ -1,144 +1,156 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using EventosApi.Configurations;
 using EventosApi.Dtos;
 using EventosApi.Exceptions;
 using EventosApi.Models;
 using EventosApi.Repositories;
-using Microsoft.EntityFrameworkCore;
+using EventosApi.Services.Base;
 
 namespace EventosApi.Services
 {
-    public class ReservaServiceImplSql : GenericoCRUDServiceImplSql<Reserva, int>, IReservaService
+    public class ReservaServiceImplSql : IGenericDtoService<Reserva, ReservaRequestDto, ReservaResponseDto, int>, IReservaService
     {
-        private readonly AppDbContext _context;
         private readonly IReservaRepository _reservaRepository;
-        private readonly IEventoRepository _eventoRepository = null!;
+        private readonly IEventoRepository _eventoRepository;
 
-        public ReservaServiceImplSql(AppDbContext context, IReservaRepository reservaRepository, ILogger<ReservaServiceImplSql> logger, IEventoRepository eventoRepository)
-            : base(context, logger)
+        public ReservaServiceImplSql(IReservaRepository reservaRepository, IEventoRepository eventoRepository)
         {
-            _context = context;
             _reservaRepository = reservaRepository;
             _eventoRepository = eventoRepository;
         }
 
-        // Metodos del crud override para que conecte el repositorio que SI tiene .Include y no devuelva nulls en los campos
-        public override async Task<IEnumerable<Reserva>> GetAllAsync()
+        public async Task<ReservaResponseDto> CreateAsync(ReservaRequestDto dto)
         {
-            return await _reservaRepository.GetAllAsync();
+            Reserva reserva = (Reserva)dto;
+
+            Evento? evento = await _eventoRepository.GetByIdAsync(reserva.IdEvento)
+                              ?? throw new NotFoundException("El evento no existe.");
+
+            reserva.PrecioVenta = evento.Precio.HasValue ? evento.Precio.Value * reserva.Cantidad : 0;
+
+            Reserva creada = await _reservaRepository.CreateAsync(reserva);
+            return (ReservaResponseDto)creada;
         }
 
-        // Único método requerido por la clase abstracta
-        protected override DbSet<Reserva> GetDbSet()
+        public async Task<bool> DeleteAsync(int id)
         {
-            return _context.Reservas;
+            Reserva? reserva = await _reservaRepository.GetByIdAsync(id)
+                              ?? throw new NotFoundException($"Reserva con ID {id} no encontrada.");
+
+            return await _reservaRepository.DeleteAsync(id);
         }
 
-        // Implementación de métodos de IReservaService
-        public Task<IEnumerable<Reserva>> FindByEventoIdAsync(int idEvento)
+        public async Task<IEnumerable<ReservaResponseDto>> GetAllDtosAsync()
         {
-            return _reservaRepository.FindByEventoIdAsync(idEvento);
+            var reservas = await _reservaRepository.GetAllAsync();
+            return reservas.Select(r => (ReservaResponseDto)r);
         }
 
-        public Task<IEnumerable<Reserva>> FindByUsernameAsync(string username)
+        public async Task<ReservaResponseDto> GetDtoByIdAsync(int id)
         {
-            return _reservaRepository.FindByUsernameAsync(username);
+            var reserva = await _reservaRepository.GetByIdAsync(id)
+                          ?? throw new NotFoundException($"Reserva con ID {id} no encontrada.");
+            return (ReservaResponseDto)reserva;
         }
 
-        public async Task<Reserva> CreateReservaAsync(Reserva reserva)
+        public async Task<ReservaResponseDto> UpdateAsync(int id, ReservaRequestDto dto)
         {
-            if (reserva.Cantidad > 10)
-                throw new BadRequestException("No se pueden hacer más de 10 reservas por evento/usuario.");
+            var reserva = await _reservaRepository.GetByIdAsync(id)
+                          ?? throw new NotFoundException($"Reserva con ID {id} no encontrada.");
 
-            // Validamos que el evento existe
-            Evento? evento = await _eventoRepository.GetByIdAsync(reserva.IdEvento);
-            if (evento == null)
-                throw new NotFoundException("El evento no existe.");
+            reserva.Cantidad = dto.Cantidad;
+            reserva.Observaciones = dto.Observaciones;
 
-            // Validamos que el evento no esté cerrado
-            if (evento.Estado != EstadoEvento.ACEPTADO)
-                throw new BadRequestException("El evento ya ha finalizado o ha sido cancelado.");
+            var evento = await _eventoRepository.GetByIdAsync(reserva.IdEvento);
+            reserva.PrecioVenta = evento?.Precio.HasValue == true ? evento.Precio.Value * dto.Cantidad : 0;
 
-            // Validamos aforo
-            int totalReservado = await _context.Reservas
-                .Where(r => r.IdEvento == reserva.IdEvento)
-                .SumAsync(r => r.Cantidad);
-
-            if (evento.AforoMaximo.HasValue && totalReservado + reserva.Cantidad > evento.AforoMaximo.Value)
-                throw new BadRequestException("No hay suficiente aforo disponible para completar esta reserva.");
-
-            // Validamos duplicado
-            Reserva? reservaExistente = await _reservaRepository.FindByEventoIdAndUsername(reserva.IdEvento, reserva.Username);
-            if (reservaExistente != null)
-            {
-                if (reservaExistente.Cantidad >= 10)
-                    throw new BadRequestException("Ya tienes una reserva con 10 personas para este evento.");
-
-                throw new BadRequestException("Ya tienes una reserva para este evento.");
-            }
-
-            // Precio total
-            reserva.PrecioVenta = evento.Precio.HasValue
-                ? evento.Precio.Value * reserva.Cantidad
-                : 0;
-
-            // Guardamos correctamente con await
-            Reserva nuevaReserva = await _reservaRepository.CreateAsync(reserva);
-
-            return nuevaReserva;
+            var actualizada = await _reservaRepository.UpdateAsync(reserva);
+            return (ReservaResponseDto)actualizada;
         }
 
-        public async Task<Reserva> UpdateReservaAsync(int idReserva, string username, ReservaUpdateDto dto)
+        public async Task<bool> DeleteAsync(int idReserva, string username, bool isAdmin)
         {
-            Reserva? reserva = await _reservaRepository.GetByIdAsync(idReserva);
+            var reserva = await _reservaRepository.GetByIdAsync(idReserva)
+                          ?? throw new NotFoundException("Reserva no encontrada.");
 
-            if (reserva == null)
-                throw new NotFoundException("No se encontró la reserva.");
+            if (!isAdmin && reserva.Username != username)
+                throw new ForbiddenException("No tienes permiso para eliminar esta reserva.");
+
+            return await _reservaRepository.DeleteAsync(idReserva);
+        }
+
+        public async Task<IEnumerable<ReservaResponseDto>> FindByEventoIdAsync(int idEvento)
+        {
+            var reservas = await _reservaRepository.FindByEventoIdAsync(idEvento);
+            return reservas.Select(r => (ReservaResponseDto)r);
+        }
+
+        public async Task<IEnumerable<ReservaResponseDto>> FindByUsernameAsync(string username)
+        {
+            var reservas = await _reservaRepository.FindByUsernameAsync(username);
+            return reservas.Select(r => (ReservaResponseDto)r);
+        }
+
+        public async Task<ReservaResponseDto> UpdateAsync(int idReserva, string username, ReservaUpdateDto dto)
+        {
+            var reserva = await _reservaRepository.GetByIdAsync(idReserva)
+                          ?? throw new NotFoundException("No se encontró la reserva.");
 
             if (reserva.Username != username)
                 throw new ForbiddenException("No tienes permisos para modificar esta reserva.");
 
-            Evento? evento = await _eventoRepository.GetByIdAsync(reserva.IdEvento);
+            Evento? evento = await _eventoRepository.GetByIdAsync(reserva.IdEvento)
+                             ?? throw new NotFoundException("El evento ya no existe.");
 
-            if (evento == null)
-                throw new NotFoundException("El evento asociado no existe.");
-
+            // Validaciones
             if (evento.Estado != EstadoEvento.ACEPTADO ||
-                (evento.FechaInicio.HasValue && evento.FechaInicio.Value.Date < DateTime.Today))
-                throw new BadRequestException("No se puede modificar una reserva de un evento cancelado, terminado o pasado.");
+                (evento.FechaInicio.HasValue && evento.FechaInicio < DateTime.Now))
+                throw new BadRequestException("No se puede modificar una reserva de un evento cancelado, finalizado o pasado.");
 
-            if (dto.Cantidad > 10)
-                throw new BadRequestException("La cantidad máxima por reserva es 10.");
-
-            // Verificamos aforo total disponible (excluyendo la cantidad actual del usuario)
-            int totalReservado = await _context.Reservas
-                .Where(r => r.IdEvento == reserva.IdEvento && r.IdReserva != reserva.IdReserva)
-                .SumAsync(r => r.Cantidad);
+            int totalReservado = (await _reservaRepository.FindByEventoIdAsync(reserva.IdEvento))
+                                 .Where(r => r.IdReserva != idReserva)
+                                 .Sum(r => r.Cantidad);
 
             if (evento.AforoMaximo.HasValue && totalReservado + dto.Cantidad > evento.AforoMaximo.Value)
                 throw new BadRequestException("No hay suficiente aforo disponible para actualizar la reserva.");
 
+            // Actualizar campos
             reserva.Cantidad = dto.Cantidad;
             reserva.Observaciones = dto.Observaciones;
             reserva.PrecioVenta = evento.Precio.HasValue ? evento.Precio.Value * dto.Cantidad : 0;
 
-            await _reservaRepository.UpdateAsync(reserva);
-            return reserva;
+            var actualizada = await _reservaRepository.UpdateAsync(reserva);
+            return (ReservaResponseDto)actualizada;
         }
 
-        public async Task<bool> DeleteReservaAsync(int idReserva, string username, bool isAdmin)
+        public async Task<ReservaResponseDto> CreateAsync(ReservaRequestDto dto, string username)
         {
-            Reserva? reserva = await _reservaRepository.GetByIdAsync(idReserva);
-            if (reserva == null)
-                throw new NotFoundException("No se encontró la reserva.");
+            Reserva reserva = (Reserva)dto;
+            reserva.Username = username;
 
-            if (!isAdmin && reserva.Username != username)
-                throw new ForbiddenException("No tienes permisos para eliminar esta reserva.");
+            Evento? evento = await _eventoRepository.GetByIdAsync(reserva.IdEvento)
+                              ?? throw new NotFoundException("El evento no existe.");
 
-            return await _reservaRepository.DeleteAsync(idReserva);
+            // Validaciones
+            if (evento.Estado != EstadoEvento.ACEPTADO)
+                throw new BadRequestException("El evento no está disponible para reservas.");
+
+            int totalReservado = (await _reservaRepository.FindByEventoIdAsync(reserva.IdEvento))
+                                 .Sum(r => r.Cantidad);
+
+            if (evento.AforoMaximo.HasValue && totalReservado + reserva.Cantidad > evento.AforoMaximo.Value)
+                throw new BadRequestException("No hay suficiente aforo disponible.");
+
+            // Calcular precio total
+            reserva.PrecioVenta = evento.Precio.HasValue ? evento.Precio.Value * reserva.Cantidad : 0;
+
+            // Comprobar duplicado
+            var existente = await _reservaRepository.FindByEventoIdAndUsername(reserva.IdEvento, username);
+            if (existente != null)
+                throw new BadRequestException("Ya existe una reserva para este evento con tu usuario.");
+
+            var creada = await _reservaRepository.CreateAsync(reserva);
+            return (ReservaResponseDto)creada;
         }
+
     }
+
 }
