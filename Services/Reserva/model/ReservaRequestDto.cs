@@ -1,8 +1,5 @@
-using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Linq;
-using System.Threading.Tasks;
+using EventosApi.Models;
 
 namespace EventosApi.Dtos
 {
@@ -16,5 +13,16 @@ namespace EventosApi.Dtos
 
         [MaxLength(200)]
         public string? Observaciones { get; set; }
+
+        public static explicit operator Reserva(ReservaRequestDto dto)
+        {
+            return new Reserva
+            {
+                IdEvento = dto.IdEvento,
+                Cantidad = dto.Cantidad,
+                Observaciones = dto.Observaciones,
+                // El Username se asigna desde el contexto (usuario autenticado), no en este DTO
+            };
+        }
     }
 }

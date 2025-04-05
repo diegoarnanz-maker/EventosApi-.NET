@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using EventosApi.Models;
 
 namespace EventosApi.Dtos
 {
@@ -9,6 +6,11 @@ namespace EventosApi.Dtos
     {
         public int Cantidad { get; set; }
         public string? Observaciones { get; set; }
-    }
 
+        public void UpdateEntity(Reserva reserva)
+        {
+            reserva.Cantidad = Cantidad;
+            reserva.Observaciones = Observaciones;
+        }
+    }
 }
