@@ -1,10 +1,6 @@
-using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Threading.Tasks;
-using AutoMapper;
 using EventosApi.Dtos;
-using EventosApi.Models;
 using EventosApi.Services;
 using EventosApi.Utils;
 using Microsoft.AspNetCore.Authorization;
@@ -14,66 +10,53 @@ namespace EventosApi.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class TipoController : ControllerBase
+    public class TipoController : BaseController
     {
         private readonly ITipoService _tipoService;
-        private readonly IMapper _mapper;
 
-        public TipoController(ITipoService tipoService, IMapper mapper)
+        public TipoController(ITipoService tipoService)
         {
             _tipoService = tipoService;
-            _mapper = mapper;
         }
 
-        // RUTAS PÚBLICAS
-
         [HttpGet]
+        [AllowAnonymous]
         public async Task<ActionResult<ApiResponse<IEnumerable<TipoResponseDto>>>> GetAll()
         {
-            IEnumerable<Tipo> tipos = await _tipoService.GetAllAsync();
-            IEnumerable<TipoResponseDto> tipoDtos = _mapper.Map<IEnumerable<TipoResponseDto>>(tipos);
-            return Ok(new ApiResponse<IEnumerable<TipoResponseDto>>(tipoDtos));
+            var tipos = await _tipoService.GetAllDtosAsync();
+            return Ok(SuccessResponse(tipos));
         }
 
         [HttpGet("{id}")]
+        [AllowAnonymous]
         public async Task<ActionResult<ApiResponse<TipoResponseDto>>> GetById(int id)
         {
-            Tipo tipo = await _tipoService.GetByIdAsync(id); // Si no lo encuentra, lanza NotFoundException desde el service
-            TipoResponseDto dto = _mapper.Map<TipoResponseDto>(tipo);
-            return Ok(new ApiResponse<TipoResponseDto>(dto));
+            var dto = await _tipoService.GetDtoByIdAsync(id);
+            return Ok(SuccessResponse(dto));
         }
 
         [HttpGet("nombre/{nombre}")]
+        [AllowAnonymous]
         public async Task<ActionResult<ApiResponse<IEnumerable<TipoResponseDto>>>> FindByNombreContainsAsync(string nombre)
         {
-            IEnumerable<Tipo> tipos = await _tipoService.FindByNombreContainsAsync(nombre);
-            IEnumerable<TipoResponseDto> tipoDtos = _mapper.Map<IEnumerable<TipoResponseDto>>(tipos);
-            return Ok(new ApiResponse<IEnumerable<TipoResponseDto>>(tipoDtos));
+            var tipoDtos = await _tipoService.FindByNombreContainsAsync(nombre);
+            return Ok(SuccessResponse(tipoDtos));
         }
-
-        // RUTAS PROTEGIDAS (SOLO ADMIN)
 
         [HttpPost]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ApiResponse<TipoResponseDto>>> Create(TipoRequestDto dto)
+        public async Task<ActionResult<ApiResponse<TipoResponseDto>>> Create([FromBody] TipoRequestDto dto)
         {
-            Tipo tipo = _mapper.Map<Tipo>(dto);
-            Tipo newTipo = await _tipoService.CreateAsync(tipo);
-            TipoResponseDto tipoResponseDto = _mapper.Map<TipoResponseDto>(newTipo);
-            return Ok(new ApiResponse<TipoResponseDto>(tipoResponseDto));
+            var tipoResponseDto = await _tipoService.CreateAsync(dto);
+            return Ok(SuccessResponse(tipoResponseDto));
         }
 
         [HttpPut("{id}")]
         [Authorize(Roles = "ADMIN")]
-        public async Task<ActionResult<ApiResponse<TipoResponseDto>>> Update(int id, TipoRequestDto dto)
+        public async Task<ActionResult<ApiResponse<TipoResponseDto>>> Update(int id, [FromBody] TipoRequestDto dto)
         {
-            Tipo tipo = await _tipoService.GetByIdAsync(id); // Lanza excepción si no lo encuentra
-
-            _mapper.Map(dto, tipo);
-            Tipo updatedTipo = await _tipoService.UpdateAsync(tipo);
-
-            TipoResponseDto responseDto = _mapper.Map<TipoResponseDto>(updatedTipo);
-            return Ok(new ApiResponse<TipoResponseDto>(responseDto));
+            var updatedDto = await _tipoService.UpdateAsync(id, dto);
+            return Ok(SuccessResponse(updatedDto));
         }
 
         [HttpDelete("{id}")]
@@ -82,9 +65,9 @@ namespace EventosApi.Controllers
         {
             bool deleted = await _tipoService.DeleteAsync(id);
             if (!deleted)
-                throw new InvalidOperationException($"No se pudo eliminar el tipo con ID {id}"); // Será capturado por el middleware
+                return BadRequest(FailedResponse<string>($"No se pudo eliminar el tipo con ID {id}"));
 
-            return Ok(new ApiResponse<string>($"Tipo con ID {id} eliminado correctamente"));
+            return Ok(SuccessResponse($"Tipo con ID {id} eliminado correctamente"));
         }
     }
 }

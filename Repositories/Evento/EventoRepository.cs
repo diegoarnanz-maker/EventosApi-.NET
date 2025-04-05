@@ -113,5 +113,25 @@ namespace EventosApi.Repositories
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Evento>> GetAllWithTipoAsync()
+        {
+            return await _context.Eventos
+                .Include(e => e.Tipo)
+                .ToListAsync();
+        }
+
+        public async Task<Evento?> GetByIdWithTipoAsync(int id)
+        {
+            return await _context.Eventos
+                .Include(e => e.Tipo)
+                .FirstOrDefaultAsync(e => e.IdEvento == id);
+        }
+
+        public async Task<Evento?> GetByIdWithReservasAsync(int id)
+        {
+            return await _context.Eventos
+                .Include(e => e.Reservas)
+                .FirstOrDefaultAsync(e => e.IdEvento == id);
+        }
     }
 }

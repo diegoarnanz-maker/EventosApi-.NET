@@ -4,6 +4,7 @@ using EventosApi.Configurations;
 using EventosApi.Models;
 using EventosApi.Repositories;
 using EventosApi.Services;
+using EventosApi.Services.Auth;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -67,8 +68,8 @@ builder.Services.AddScoped<IEventoRepository, EventoRepository>();
 builder.Services.AddScoped<IReservaRepository, ReservaRepository>();
 
 // @Service
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITipoService, TipoServiceImplSql>();
-builder.Services.AddScoped<IUserValidationService, UserDetailsServiceImplSql>();
 builder.Services.AddScoped<IUsuarioService, UsuarioServiceImplSql>();
 builder.Services.AddScoped<IEventoService, EventoServiceImplSql>();
 builder.Services.AddScoped<IReservaService, ReservaServiceImplSql>();

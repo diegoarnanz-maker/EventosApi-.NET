@@ -1,7 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using EventosApi.Models;
 
 namespace EventosApi.Dtos
@@ -16,17 +13,30 @@ namespace EventosApi.Dtos
         public string? Direccion { get; set; }
         public string Estado { get; set; } = string.Empty;
         public string Destacado { get; set; } = string.Empty;
-
         public int? AforoMaximo { get; set; }
         public int? MinimoAsistencia { get; set; }
         public decimal? Precio { get; set; }
-
-        // Detalles del tipo
         public int IdTipo { get; set; }
         public string NombreTipo { get; set; } = string.Empty;
 
-        // Si en algún momento queremos incluir la lista de reservas:
-        // public List<ReservaSimpleDto> Reservas { get; set; }
+        public static explicit operator EventoDetalleResponseDto(Evento e)
+        {
+            return new EventoDetalleResponseDto
+            {
+                IdEvento = e.IdEvento,
+                Nombre = e.Nombre,
+                Descripcion = e.Descripcion,
+                FechaInicio = e.FechaInicio,
+                Duracion = e.Duracion,
+                Direccion = e.Direccion,
+                Estado = e.Estado.ToString(),
+                Destacado = e.Destacado.ToString(),
+                AforoMaximo = e.AforoMaximo,
+                MinimoAsistencia = e.MinimoAsistencia,
+                Precio = e.Precio,
+                IdTipo = e.IdTipo,
+                NombreTipo = e.Tipo?.Nombre ?? string.Empty
+            };
+        }
     }
-
 }
