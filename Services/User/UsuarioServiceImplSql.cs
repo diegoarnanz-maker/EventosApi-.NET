@@ -2,103 +2,152 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using EventosApi.Configurations;
 using EventosApi.Dtos;
 using EventosApi.Exceptions;
 using EventosApi.Models;
 using EventosApi.Repositories;
+using EventosApi.Services.Base;
+using EventosApi.Services.User.model;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 
 namespace EventosApi.Services
 {
-    public class UsuarioServiceImplSql : GenericoCRUDServiceImplSql<Usuario, int>, IUsuarioService
+    public class UsuarioServiceImplSql : IGenericDtoService<Usuario, UsuarioCreateDto, UsuarioResponseDto, string>, IUsuarioService
     {
-        private readonly AppDbContext _context;
         private readonly IUsuarioRepository _usuarioRepository;
         private readonly IPasswordHasher<Usuario> _passwordHasher;
 
-        public UsuarioServiceImplSql(
-            AppDbContext context,
-            IUsuarioRepository usuarioRepository,
-            IPasswordHasher<Usuario> passwordHasher,
-            ILogger<UsuarioServiceImplSql> logger
-        ) : base(context, logger)
+        public UsuarioServiceImplSql(IUsuarioRepository usuarioRepository, IPasswordHasher<Usuario> passwordHasher)
         {
-            _context = context;
             _usuarioRepository = usuarioRepository;
             _passwordHasher = passwordHasher;
         }
 
-        // Verifica si ya existe un usuario por su username
+        public async Task<UsuarioResponseDto> CreateAsync(UsuarioCreateDto dto)
+        {
+            if (await ExistsByUsernameAsync(dto.Username))
+                throw new BadRequestException("Ya existe un usuario con ese username.");
+
+            Usuario user = (Usuario)dto;
+            user.Password = _passwordHasher.HashPassword(user, dto.Password);
+
+            var creado = await _usuarioRepository.CreateAsync(user);
+            return (UsuarioResponseDto)creado;
+        }
+
+        public async Task<UsuarioResponseDto> UpdateAsync(string username, UsuarioCreateDto dto)
+        {
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username)
+                          ?? throw new NotFoundException($"Usuario '{username}' no encontrado.");
+
+            usuario.Email = dto.Email;
+            usuario.Nombre = dto.Nombre;
+            usuario.Apellidos = dto.Apellidos;
+            usuario.Direccion = dto.Direccion;
+            usuario.Rol = dto.Rol;
+
+            var actualizado = await _usuarioRepository.UpdateAsync(usuario);
+            return (UsuarioResponseDto)actualizado;
+        }
+
+        public async Task<UsuarioResponseDto> UpdateAsync(string username, UsuarioUpdateDto dto)
+        {
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username)
+                          ?? throw new NotFoundException("Usuario no encontrado.");
+
+            if (dto.Email != null) usuario.Email = dto.Email;
+            if (dto.Nombre != null) usuario.Nombre = dto.Nombre;
+            if (dto.Apellidos != null) usuario.Apellidos = dto.Apellidos;
+            if (dto.Direccion != null) usuario.Direccion = dto.Direccion;
+
+            var actualizado = await _usuarioRepository.UpdateAsync(usuario);
+            return (UsuarioResponseDto)actualizado;
+        }
+
+        public async Task<UsuarioResponseDto> ChangePasswordAsync(string username, UsuarioChangePasswordDto dto)
+        {
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username)
+                          ?? throw new NotFoundException("Usuario no encontrado.");
+
+            var result = _passwordHasher.VerifyHashedPassword(usuario, usuario.Password, dto.CurrentPassword);
+            if (result == PasswordVerificationResult.Failed)
+                throw new BadRequestException("La contraseña actual no es correcta.");
+
+            usuario.Password = _passwordHasher.HashPassword(usuario, dto.NewPassword);
+            var actualizado = await _usuarioRepository.UpdateAsync(usuario);
+            return (UsuarioResponseDto)actualizado;
+        }
+
+        public async Task<IEnumerable<UsuarioResponseDto>> GetAllDtosAsync()
+        {
+            var usuarios = await _usuarioRepository.GetAllAsync();
+            return usuarios.Select(u => (UsuarioResponseDto)u);
+        }
+
+        public async Task<UsuarioResponseDto> GetDtoByIdAsync(string username)
+        {
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username)
+                          ?? throw new NotFoundException($"Usuario '{username}' no encontrado.");
+            return (UsuarioResponseDto)usuario;
+        }
+
         public async Task<bool> ExistsByUsernameAsync(string username)
         {
-            if (string.IsNullOrWhiteSpace(username))
-                throw new BadRequestException("El nombre de usuario no puede estar vacío.");
-
-            Usuario? usuario = await _usuarioRepository.FindByUsernameAsync(username);
-            return usuario != null;
+            return await _usuarioRepository.ExistsByUsernameAsync(username);
         }
 
         public async Task<Usuario?> FindByUsernameAsync(string username)
         {
-            if (string.IsNullOrWhiteSpace(username))
-                throw new BadRequestException("El nombre de usuario no puede estar vacío.");
-
-            Usuario? usuario = await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.Username == username && u.Enabled);
-
-            if (usuario == null)
-                throw new NotFoundException("Usuario no encontrado o deshabilitado.");
-
-            return usuario;
+            return await _usuarioRepository.GetByUsernameAsync(username);
         }
 
-        // Encripta la contraseña
-        public string HashPassword(Usuario usuario, string rawPassword)
+        public async Task<IEnumerable<UsuarioResponseDto>> FindByNombreAsync(string nombre)
         {
-            if (string.IsNullOrWhiteSpace(rawPassword))
-                throw new BadRequestException("La contraseña no puede estar vacía.");
-
-            return _passwordHasher.HashPassword(usuario, rawPassword);
+            var lista = await _usuarioRepository.FindByNombreAsync(nombre);
+            return lista.Select(u => (UsuarioResponseDto)u);
         }
 
-        public async Task<Usuario> RegisterAsync(RegisterRequestDto dto)
+        public async Task<IEnumerable<UsuarioResponseDto>> FindByRolAsync(string rol)
         {
-            if (dto == null)
-                throw new BadRequestException("Los datos de registro no pueden ser nulos.");
-
-            // 1. Comprobar si ya existe el usuario
-            Usuario? existingUser = await _usuarioRepository.FindByUsernameAsync(dto.Username);
-            if (existingUser != null)
-            {
-                throw new BadRequestException("El nombre de usuario ya está en uso.");
-            }
-
-            // 2. Mapear DTO a entidad manualmente (sin usar AutoMapper dentro del servicio)
-            Usuario nuevoUsuario = new Usuario
-            {
-                Username = dto.Username,
-                Email = dto.Email,
-                Nombre = dto.Nombre,
-                Apellidos = dto.Apellidos,
-                Direccion = dto.Direccion,
-                Enabled = true,
-                FechaRegistro = DateTime.UtcNow,
-                Rol = "USER",
-                Password = HashPassword(new Usuario(), dto.Password)
-            };
-
-            // 3. Guardar en BBDD
-            Usuario usuarioCreado = await _usuarioRepository.CreateAsync(nuevoUsuario);
-            return usuarioCreado;
+            var lista = await _usuarioRepository.FindByRolAsync(rol);
+            return lista.Select(u => (UsuarioResponseDto)u);
         }
 
-        // Único método requerido por la clase abstracta
-        protected override DbSet<Usuario> GetDbSet()
+        public async Task<bool> DeleteAsync(string username)
         {
-            return _context.Usuarios;
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username)
+                          ?? throw new NotFoundException($"Usuario '{username}' no encontrado.");
+
+            return await _usuarioRepository.DeleteAsync(username);
         }
+
+        public async Task<UsuarioResponseDto> DesactivarUsuarioAsync(string username)
+        {
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username)
+                          ?? throw new NotFoundException($"Usuario '{username}' no encontrado.");
+
+            // Marcar como desactivado
+            usuario.Enabled = false;
+
+            var actualizado = await _usuarioRepository.UpdateAsync(usuario);
+            return (UsuarioResponseDto)actualizado;
+        }
+        public async Task<UsuarioDetalleResponseDto> GetDetalleByIdAsync(string username)
+        {
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username)
+                          ?? throw new NotFoundException($"Usuario '{username}' no encontrado.");
+            return (UsuarioDetalleResponseDto)usuario;
+        }
+        public async Task<UsuarioResponseDto> ActivarUsuarioAsync(string username)
+        {
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username)
+                          ?? throw new NotFoundException($"Usuario '{username}' no encontrado.");
+
+            usuario.Enabled = true;
+            var actualizado = await _usuarioRepository.UpdateAsync(usuario);
+
+            return (UsuarioResponseDto)actualizado;
+        }
+
     }
 }

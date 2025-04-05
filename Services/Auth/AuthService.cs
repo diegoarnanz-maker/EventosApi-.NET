@@ -20,7 +20,7 @@ namespace EventosApi.Services.Auth
 
         public async Task<Usuario?> LoginAsync(LoginRequestDto dto)
         {
-            var usuario = await _usuarioRepository.FindByUsernameAsync(dto.Username);
+            var usuario = await _usuarioRepository.GetByUsernameAsync(dto.Username);
             if (usuario == null || !usuario.Enabled)
                 return null;
 
@@ -33,7 +33,7 @@ namespace EventosApi.Services.Auth
             if (string.IsNullOrWhiteSpace(dto.Username) || string.IsNullOrWhiteSpace(dto.Password))
                 throw new ArgumentException("El nombre de usuario y la contraseña son obligatorios.");
 
-            var existingUser = await _usuarioRepository.FindByUsernameAsync(dto.Username);
+            var existingUser = await _usuarioRepository.GetByUsernameAsync(dto.Username);
             if (existingUser != null)
                 throw new InvalidOperationException("El nombre de usuario ya está en uso.");
 
@@ -59,7 +59,7 @@ namespace EventosApi.Services.Auth
             if (string.IsNullOrWhiteSpace(username))
                 return null;
 
-            var usuario = await _usuarioRepository.FindByUsernameAsync(username);
+            var usuario = await _usuarioRepository.GetByUsernameAsync(username);
             return usuario?.Enabled == true ? usuario : null;
         }
     }
